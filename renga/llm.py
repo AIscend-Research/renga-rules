@@ -27,7 +27,11 @@ _client = None
 def client():
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+        # max_retries raised from the SDK default (2) to 8: a multi-hour, hundreds-of-calls
+        # run WILL hit transient 5xx/529 "overloaded" errors from Anthropic's servers, and
+        # the default retry budget isn't enough to ride those out without crashing the run.
+        # The SDK handles backoff/jitter internally for retryable status codes.
+        _client = anthropic.Anthropic(max_retries=8)  # reads ANTHROPIC_API_KEY from env
     return _client
 
 

@@ -214,6 +214,58 @@ of discarding the verse's tags entirely. The empty-tags fallback and its
 warning print are still there for genuinely malformed JSON (e.g. an actual
 missing comma), just no longer triggered by this case.
 
+## 13. Fixed a crash and a footgun: transient API errors and no resume
+
+The real (`--n 20 --length 16`) run crashed 7 sequences into `baseline`
+with `anthropic.OverloadedError: 529 overloaded_error`, a transient "the
+API is busy right now" error from Anthropic's servers. This kind of error
+is expected to happen occasionally across a run with hundreds of API
+calls; it isn't a bug in the request, it's normal transient infrastructure
+load, and the SDK's default retry budget (2 retries) wasn't enough to ride
+it out.
+
+Two fixes:
+
+- Raised `anthropic.Anthropic(max_retries=8)` in `renga/llm.py` (was the
+  SDK default of 2), so the client rides out transient 5xx/529 errors with
+  its built-in backoff instead of crashing the whole run over one bad
+  moment.
+- Made `run_experiment` in `renga/experiment.py` resumable: it now skips
+  any `seq_NNN.json` that already exists on disk instead of regenerating
+  it. Before this fix, re-running the same command after a crash would
+  have silently overwritten the 7 already-completed (and already paid
+  for) `baseline` sequences and started over. Delete a specific file
+  manually if you actually want to regenerate just that one sequence.
+
+Not something a pilot run at n=3 would ever surface, since a 3-sequence
+run finishes fast enough that a transient overload is unlikely to hit
+mid-run; only showed up once the run got long enough (hundreds of calls
+across `--n 20 --length 16`) for the odds to catch up. Worth mentioning in
+the paper's Method section as a practical note: bulk LLM-API experiments
+need retry/resume handling, not just a happy-path script.
+
+## 14. The client-level retry fix wasn't enough on its own
+
+Re-running after step 13's fix confirmed the resume logic worked (it
+correctly skipped the 7 already-completed `baseline` sequences), but hit
+the identical `529 overloaded_error` again, even with `max_retries=8` at
+the client level. That means Anthropic's servers were under a sustained
+overload at the time, not a single transient blip that a few retries with
+backoff can ride out.
+
+Client-side retries alone can't fully solve a sustained outage, so made
+the runner resilient to the fact that some sequences will fail no matter
+what: wrapped the per-sequence generation in `run_experiment`
+(`renga/experiment.py`) in a try/except for
+`anthropic.APIStatusError`/`anthropic.APIConnectionError`. A failure now
+prints a message, waits 10 seconds, and moves on to the next sequence,
+instead of crashing the entire run. The failed sequence's file is simply
+never written, so the resume logic from step 13 will automatically retry
+it the next time this same command is run. Genuine bugs (a `ValueError`
+from a missing text block, a `KeyError`, etc.) are intentionally NOT
+caught here and will still crash loudly, since those need to be fixed in
+code, not retried around.
+
 ## Why this belongs in the paper
 
 All of section 8-9 is exactly the kind of calibration transparency a

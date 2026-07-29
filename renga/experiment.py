@@ -11,6 +11,9 @@ from __future__ import annotations
 import json
 import os
 import random
+import time
+
+import anthropic
 
 from .conditions import CONDITIONS
 from .scribe import generate_next_verse
@@ -45,13 +48,44 @@ def run_experiment(
         seeds = json.load(f)
 
     rng = random.Random(seed_rng)
+    consecutive_failures = 0
+    # If several sequences in a row fail even after the client's own retry budget
+    # (llm.client's max_retries=8) is exhausted, that's not a one-off blip anymore,
+    # it means Anthropic's API is having a sustained outage. Grinding through the
+    # rest of n_sequences one at a time, each waiting out 8 retries before giving
+    # up, just wastes time proving the same thing over and over. Stop the whole
+    # run instead of the caller having to notice and Ctrl+C.
+    CONSECUTIVE_FAILURE_LIMIT = 3
+
     for condition in conditions:
         cond_dir = os.path.join(out_dir, condition)
         os.makedirs(cond_dir, exist_ok=True)
         for i in range(n_sequences):
-            seed = seeds[i % len(seeds)]
-            seq = run_sequence(condition, seed_id=seed["id"], seed_text=seed["text"], length=length, model=model)
             out_path = os.path.join(cond_dir, f"seq_{i:03d}.json")
+            if os.path.exists(out_path):
+                # Resuming after a crash (e.g. a transient API 5xx/529) shouldn't re-pay for
+                # and regenerate sequences that already completed successfully. Delete the
+                # file first if you actually want to regenerate a specific sequence.
+                print(f"[{condition}] skipping {out_path} (already exists)")
+                continue
+            seed = seeds[i % len(seeds)]
+            try:
+                seq = run_sequence(condition, seed_id=seed["id"], seed_text=seed["text"], length=length, model=model)
+            except (anthropic.APIStatusError, anthropic.APIConnectionError) as e:
+                print(f"[{condition}] FAILED seq_{i:03d} after retries ({e}); skipping, re-run this command later to fill it in")
+                consecutive_failures += 1
+                if consecutive_failures >= CONSECUTIVE_FAILURE_LIMIT:
+                    print(
+                        f"\n{consecutive_failures} sequences in a row failed even after the client's own "
+                        "retry budget was exhausted. This almost certainly means Anthropic's API is "
+                        "having a sustained outage right now, not a transient blip. Stopping here instead "
+                        "of grinding through the rest -- check https://status.anthropic.com, wait, and "
+                        "re-run this exact same command later; it will skip everything already completed."
+                    )
+                    return
+                time.sleep(10)
+                continue
+            consecutive_failures = 0
             with open(out_path, "w") as f:
                 json.dump(seq.to_dict(), f, indent=2)
             print(f"[{condition}] wrote {out_path} (rejections={sum(len(v.rejections) for v in seq.verses)})")
