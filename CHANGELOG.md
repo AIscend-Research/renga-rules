@@ -190,6 +190,30 @@ tracking how often this fires across the real experiment (grep the run
 output for `[llm.extract_tags] WARNING`) and reporting the rate in the
 paper rather than assuming it never happens.
 
+## 12. Fixed real data loss: self-corrected tag responses were being discarded
+
+Re-running the step-11 pilot did drop rejection counts significantly (17-28
+per sequence, down from 40-51), confirming the taxonomy expansion worked.
+But it also printed the new WARNING from step 11 on a case worth looking at
+closely: the model second-guessed itself mid-response ("categories":
+["nature", "water"], then "Wait, 'water' is not in the fixed list, let me
+correct that", then a second, correct JSON object). That's not malformed
+JSON, it's two valid objects concatenated, and the model's second object
+is exactly the corrected answer we want. The old fallback (grab everything
+between the first `{` and the last `}`) spanned both objects and failed to
+parse, so the entire verse's tags were being thrown away even though a
+perfectly good answer was sitting right there in the response.
+
+Since the tag schema is flat (`{"motifs": [...], "categories": [...]}`,
+no nested braces), fixed `extract_tags` in `renga/llm.py` to find every
+non-nested `{...}` object in the response with a regex and try parsing
+them last-to-first, since a self-correction is always the intended final
+answer. Verified against the exact raw text from the warning: it now
+correctly extracts `{"motifs": [...], "categories": ["nature"]}` instead
+of discarding the verse's tags entirely. The empty-tags fallback and its
+warning print are still there for genuinely malformed JSON (e.g. an actual
+missing comma), just no longer triggered by this case.
+
 ## Why this belongs in the paper
 
 All of section 8-9 is exactly the kind of calibration transparency a

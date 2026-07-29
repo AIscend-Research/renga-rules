@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import anthropic
 from dotenv import load_dotenv
@@ -66,16 +67,27 @@ def extract_tags(verse_text: str, model: str = DEFAULT_MODEL) -> dict:
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        start, end = raw.find("{"), raw.rfind("}")
-        try:
-            data = json.loads(raw[start : end + 1]) if start != -1 and end != -1 else {}
-        except json.JSONDecodeError:
-            # the model occasionally emits slightly malformed JSON (a missing comma,
-            # a stray line). Not worth crashing an entire multi-hour run over one bad
-            # tag-extraction call -- fall back to empty tags for this verse. This does
-            # mean that verse won't be checked for uchikoshi/sarikirai violations or
-            # counted in provenance lineages, which is a small, rare source of noise
-            # worth disclosing rather than silently absorbing.
+        # The model sometimes second-guesses itself mid-response ("wait, that
+        # category isn't in the list, let me correct that") and emits two JSON
+        # objects back to back: a wrong first attempt followed by a corrected
+        # one. Our schema is flat (no nested braces), so each individual object
+        # can be found with a non-nested brace match; try them last-to-first,
+        # since a self-correction is the intended final answer.
+        candidates = re.findall(r"\{[^{}]*\}", raw)
+        data = None
+        for candidate in reversed(candidates):
+            try:
+                data = json.loads(candidate)
+                break
+            except json.JSONDecodeError:
+                continue
+        if data is None:
+            # Genuinely malformed (e.g. a missing comma), not just multiple objects.
+            # Not worth crashing an entire multi-hour run over one bad tag-extraction
+            # call -- fall back to empty tags for this verse. This does mean that
+            # verse won't be checked for uchikoshi/sarikirai violations or counted in
+            # a provenance lineage, a small, rare source of noise worth disclosing
+            # rather than silently absorbing.
             print(f"[llm.extract_tags] WARNING: unparseable tag response, falling back to empty tags. Raw: {raw!r}")
             data = {}
     data.setdefault("motifs", [])
