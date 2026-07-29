@@ -1,213 +1,224 @@
 # renga-rules
 
-A testable mechanism, not a metaphor: renga's 14th-century shikimoku
-(link-and-shift, uchikoshi non-return, sarikirai recurrence tables, author
-rotation, master-scribe arbitration) implemented as constraints on
-LLM-generated linked verse, plus instrumentation to measure whether it
-actually redistributes thematic control instead of just measuring
-instruction compliance.
+This project tries to answer a weird question: can a 700 year old Japanese
+poetry rulebook fix a modern AI writing problem?
 
-Thesis: agency in human-LLM co-writing is procedural, not intentional. The
-model's thematic gravity, its tendency to have its own motifs outlive and
-dominate a collaborator's, is a property of the *governance rules* in
-force, not of anyone's stated intentions. Renga is a 700-year-old existence
-proof that this can be fixed by constitution rather than willpower.
+The problem: when a human and an LLM write something together, the model's
+ideas slowly take over the piece. Even if nobody means for that to happen.
+My guess is that this isn't about the model's "intentions" at all, it's
+about whether there are actual rules stopping it. So I went looking for a
+historical example of people solving exactly this problem and found renga
+(Japanese linked verse poetry), which had a whole rulebook (shikimoku) for
+keeping group-written poems from getting hijacked by one voice: verses had
+to connect to the one right before them, but weren't allowed to circle back
+to the theme from two verses ago, certain topics could only come back after
+enough verses had passed, nobody could write two verses in a row, and a
+head poet enforced all of it.
 
-## What's actually implemented
+This repo turns that rulebook into actual code that constrains an LLM
+while it writes linked verse with another author (another model persona,
+or a real human), and measures whether it actually stops one side from
+dominating the poem, instead of just whether the poem "looks" more varied
+on the surface.
 
-- `renga/rules.py`: the shikimoku as checkable predicates. `link` (must
-  connect to verse n-1), `shift` (must depart from verse n-2, embedding
-  level), `uchikoshi` (must not repeat a category from verse n-2, the named
-  classical fault), `sarikirai` (per-category minimum recurrence gap),
-  `rotation` (no same author twice running). Plus `arbitrary`, an
-  equal-instruction-load control rule (a color-word constraint) with no
-  thematic-governance function, used to show the effect isn't just "any
-  constraint reduces repetition."
-- `renga/scribe.py`: the master scribe. Generates a candidate verse, runs
-  the active checks for the condition, and on failure hands the model a
-  specific rejection reason and asks it to retry (up to 3x, then accepts
-  and flags the violation as unresolved).
-- `renga/provenance.py`: clusters motif mentions into cross-sequence
-  "lineages" (via local sentence-embedding similarity) and computes
-  **thematic gravity**, whether one author's motifs systematically outlive
-  the other's. This is the metric the project's argument rests on; see
-  "Why provenance, not autocorrelation" below.
-- `renga/conditions.py`: 8 ablation conditions. `baseline`,
-  `rotation_only`, `link_only`, `shift_only`, `uchikoshi_only`,
-  `sarikirai_only`, `full_shikimoku`, `arbitrary_control`.
-- `renga/metrics.py`: bootstrap CIs, permutation tests, descriptive
-  lag-1..5 semantic autocorrelation.
-- `scripts/run_experiment.py`: bulk runner. N sequences per condition,
-  alternating two model personas (model_A/model_B) so rotation is testable
-  without needing a live human for every run.
-- `scripts/human_session.py`: interactive real human-LLM co-writing
-  session under a chosen condition, producing a transcript for
-  qualitative/case-study material.
-- `scripts/make_plots.py`: ablation table (CSV), gravity-gap bar chart
-  with CIs, autocorrelation curves, permutation-test p-values.
-- `scripts/calibrate.py`: prints the natural similarity distribution from
-  an unconstrained pilot batch so thresholds get set from data.
+## The idea, basically
 
-## Why provenance, not autocorrelation
+If you tell a model "don't repeat the topic from two verses ago" and then
+just check if it repeated the topic, all you've shown is that it followed
+an instruction. That's not the interesting claim. The interesting claim is
+about who ends up controlling the poem: do the model's own ideas keep
+coming back and sticking around longer than the other author's ideas do?
+That's what I'm calling "thematic gravity," and it's the actual thing this
+project measures.
 
-Instructing the model "don't return to the verse before last" and then
-measuring lag-2 embedding similarity only shows instruction compliance,
-not governance. `metrics.semantic_autocorrelation` is kept in the codebase
-and the plots for exactly this reason: it is shown explicitly as
-**descriptive only**, not the headline result.
+## What's in here
 
-The claim that matters is about who steers. `provenance.gravity_gap` tracks
-individual motifs across the whole sequence (via embedding-clustered
-"lineages") and asks whether one author's introduced material persists and
-recurs more than the other's, and whether that gap shrinks under
-governance. That is a measurement of control, not of surface variety.
+- `renga/rules.py` — the shikimoku rules as actual code checks: `link`
+  (has to connect to the verse right before it), `shift` (has to move away
+  from the verse two back), `uchikoshi` (can't repeat a topic category from
+  two verses back, this was a named foul in real renga), `sarikirai`
+  (certain topics need a minimum gap before they can come back),
+  `rotation` (same author can't go twice in a row). There's also
+  `arbitrary`, a fake rule (has to use exactly one color word) that's just
+  as complicated to follow but has nothing to do with themes. That's the
+  control group.
+- `renga/scribe.py` — this is the "head poet." It generates a verse, checks
+  it against whatever rules are turned on, and if it breaks one, tells the
+  model why and makes it try again (up to 3 times).
+- `renga/provenance.py` — tracks individual ideas/motifs across the whole
+  poem and figures out which author started each one and how long it kept
+  showing up. This is where the thematic gravity number comes from.
+- `renga/conditions.py` — the 8 test setups: no rules at all, each rule by
+  itself, all the rules together, and the fake control rule.
+- `renga/metrics.py` — stats stuff: confidence intervals, significance
+  tests, plus a similarity-over-distance chart that's just there to show
+  the shape of things. It doesn't prove anything by itself.
+- `scripts/run_experiment.py` — runs a bunch of poems automatically, using
+  two model personas so you don't need an actual human sitting there for
+  every single run.
+- `scripts/human_session.py` — lets you actually sit down and write verses
+  back and forth with the model yourself. Good for getting a real example
+  to put in the paper.
+- `scripts/make_plots.py` — turns all the saved poems into a results table
+  and some charts.
+- `scripts/calibrate.py` — helps you figure out reasonable similarity
+  thresholds instead of guessing.
 
-Caveat baked into the code: in bulk automated runs both authors are the
-model (two personas, model_A/model_B), so there is no principled "positive
-means the model wins" direction. Report the *imbalance magnitude*
-(`summarize_condition(..., signed=False)`, the default). The literal
-human-vs-model signed gap comes from `human_session.py` transcripts
-(`signed=True`, small n, case-study material, not the headline statistic).
+## Why I'm not just measuring "did it repeat itself less"
+
+Worth spelling out because it's the easiest way this project could go
+wrong. If I tell the model "don't return to two verses ago" and then
+measure whether it returned to two verses ago, I've basically just checked
+that it obeyed me. That's not a finding, that's a compliance test.
+
+So instead of only measuring repetition, `provenance.py` follows individual
+motifs across the entire poem (using sentence embeddings to cluster
+"snow falling" and "the snow kept falling" as the same idea) and tracks
+which author started each idea and how long it stuck around. If the
+model's ideas consistently outlive the other author's ideas, that's
+thematic gravity. If the rules actually work, that gap should shrink.
+
+One thing to be upfront about: in the automated bulk runs, both "authors"
+are the same model wearing two different personas, so there's no real
+human to compare against. That version measures which persona ends up
+dominating, whichever one it happens to be. It isn't really "model vs
+human." The actual human vs. model comparison only comes from real
+sessions run through `human_session.py`, and there won't be a ton of
+those, so treat them as a small supporting example instead of the main
+result.
 
 ## Setup
 
 ```bash
 pip install -r requirements.txt
-export HF_TOKEN=...      # a Read (Read-only) access token from https://huggingface.co/settings/tokens is enough.
-                          # This project only calls Inference Providers, it never pushes to the Hub.
 ```
 
-Generation and motif/category tagging both call
-[Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) via
-HF's hosted Inference Providers by default (`renga/llm.py`), no GPU
-needed locally, it is a remote API call billed per request/token like any
-other hosted model. Override with `RENGA_MODEL=<hf-repo-id>` to try a
-different hosted model, for example to test whether the effect holds
-across model pairings.
+You'll need an Anthropic API key in your `.env` file:
 
-The first run downloads `all-MiniLM-L6-v2` (sentence-transformers) locally
-for constraint-checking embeddings. After that, embedding is offline and
-free, so it is safe to call inside the scribe's retry loop.
+```
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
 
-## Running it
+Get one from https://console.anthropic.com. This is a paid API, billed
+per token, there's no ongoing free tier beyond whatever trial credit a
+new account gets.
 
-**1. Calibrate thresholds on a cheap pilot before trusting any numbers.**
-`LINK_MIN_SIM`, `SHIFT_MAX_SIM` (`renga/rules.py`) and `LINEAGE_SIM`
-(`renga/provenance.py`) are cosine-similarity cutoffs chosen as reasonable
-starting points, not calibrated against ground truth.
+By default it uses `claude-sonnet-5`, no GPU needed on your end, it's just
+an API call. You can swap models with `RENGA_MODEL=<other-claude-model>` if
+you want to use something cheaper (like a Haiku model) for cheap bulk
+testing before spending more on the final run.
+
+The first time you run anything, it'll also download a small local
+embedding model (`all-MiniLM-L6-v2`) for comparing verses to each other.
+That one's free and runs offline after the first download.
+
+## How to actually run this
+
+**Step 1: cheap test run first.** Don't run the whole thing blind, the
+similarity thresholds in `renga/rules.py` are just guesses right now.
 
 ```bash
 python scripts/run_experiment.py --pilot --conditions baseline
 python scripts/calibrate.py
-# Edit renga/rules.py thresholds based on the printed percentiles.
-# Re-run the pilot across all conditions, spot-check a few sequences by eye:
-# do "link" verses actually read as connected? Do "shift" verses actually
-# read as departed? If not, adjust and repeat. This step is what turns
-# the mechanism into something defensible; do not skip it.
 ```
 
-**2. Run the full ablation battery.**
+Look at what it prints, adjust `LINK_MIN_SIM` / `SHIFT_MAX_SIM` in
+`renga/rules.py` if the numbers look off, and maybe read a couple of the
+generated poems yourself to make sure "linked" verses actually read as
+linked and "shifted" verses actually read as different. Skipping this step
+is how you end up with numbers that don't mean anything.
+
+**Step 2: run everything.**
 
 ```bash
 python scripts/run_experiment.py --n 20 --length 16
-# ~8 conditions x 20 sequences x 16 verses x (1 generation + 1 tag-extraction
-# call per accepted verse, more per rejection/retry). Budget API calls
-# accordingly; start smaller (--n 8) for a cheaper first look.
 ```
 
-**3. Run at least one real human-LLM session** for case-study material and
-to sanity-check that the automated two-persona proxy is not measuring
-something degenerate:
+This calls the API a lot (roughly 8 setups x 20 poems x 16 verses, times 2
+calls per verse, plus retries), so maybe start smaller (`--n 8`) if you're
+worried about cost or time.
+
+**Step 3: do at least one real human session.**
 
 ```bash
 python scripts/human_session.py --condition baseline --length 12
 python scripts/human_session.py --condition full_shikimoku --length 12
 ```
 
-**4. Analyze.**
+**Step 4: make the charts and table.**
 
 ```bash
 python scripts/make_plots.py
-# -> results/ablation_table.csv
-# -> results/gravity_gap.png
-# -> results/autocorrelation.png
-# -> prints permutation-test p-values: full_shikimoku vs baseline,
-#    full_shikimoku vs arbitrary_control
 ```
 
-## Writing the paper
+This spits out `results/ablation_table.csv`, `results/gravity_gap.png`,
+`results/autocorrelation.png`, and prints p-values comparing
+`full_shikimoku` against `baseline` and against the fake `arbitrary_control`
+rule.
 
-Target: the non-archival, 2-6 page, poster-format track whose CFP asks how
-friction, slowness, refusal, repetition, and constraint preserve or
-transform creative agency. This section is a checklist for turning the
-`results/` output into that submission.
+## Turning this into an actual paper
 
-**Abstract (150 words).** Lead with the reframe, not the poetry: renga's
-shikimoku is a hand-specified decoding constraint from 1372. Uchikoshi is
-a lag-2 anti-repetition rule; sarikirai tables are distance-scoped
-repetition penalties. State the thesis (agency in collaboration is
-procedural, not intentional) and the headline number (thematic gravity
-imbalance under `full_shikimoku` vs `baseline`, with the p-value).
+This fits the kind of track where you submit a short (2-6 page) poster
+paper about how constraints and rules shape creative work with AI. Here's
+roughly how I'd lay it out:
 
-**Introduction.** One paragraph on the failure mode (a model's thematic
-gravity swallowing human-LLM co-written work), one paragraph on renga as a
-700-year-old governance system built for exactly this, one paragraph
-stating the mechanism (link-and-shift plus uchikoshi, sarikirai, rotation,
-and arbitration) and the falsifiable prediction: imbalance shrinks under
-full governance, specifically because of *this* rule set and not any
-equal-complexity constraint. That is what `arbitrary_control` is for.
+**Abstract.** Open with the historical hook, renga's rulebook is basically
+a 650-year-old set of decoding constraints (uchikoshi = don't repeat what
+happened 2 steps ago, sarikirai = topics need cooldowns before they can
+come back). Then say the actual claim: agency in human-AI collaboration comes down to
+the rules in place more than anyone's intentions. Then give the one
+headline number: how much the thematic gravity gap shrinks under the full
+rule set vs. no rules, with the p-value.
 
-**Method.**
-- State plainly that this is a simplified operationalization, not a
-  philological reproduction: real sarikirai tables specify exact intervals
-  across a 100-verse kasen against a much larger word taxonomy than the 10
-  categories used here.
-- Describe the master-scribe retry loop and report the rejection rate and
-  unresolved-violation rate per condition from the ablation table. This is
-  itself a result (how much friction each rule set actually imposes) and
-  answers the CFP's framing directly.
-- Describe the provenance/lineage method and disclose the
-  same-model-both-authors caveat above.
-- List all 8 conditions in a table with one-line descriptions, pulled
-  straight from `renga/conditions.py:RULE_EXPLANATIONS`.
+**Intro.** Explain the problem (models slowly taking over collaborative
+writing), bring in renga as an existing solution to basically the same
+problem, and state the prediction clearly: the gap should shrink under the
+full rules, and specifically because of these rules rather than because
+any random constraint would do the same thing (that's what the fake
+`arbitrary_control` condition is for).
+
+**Method section.**
+- Be upfront that this is a simplified version of the real rules rather
+  than an exact historical recreation. The real sarikirai tables are way more
+  detailed than the 10 categories used here.
+- Explain the retry loop and report how often verses got rejected per
+  condition, that's an interesting number on its own (how much friction
+  each rule set actually creates).
+- Explain how the motif tracking works and mention the two-model-persona
+  caveat from above.
+- Table listing all 8 conditions with a one-line description each (you can
+  basically copy these from `renga/conditions.py`).
 
 **Results.**
-- Table: `results/ablation_table.csv` (condition x gravity-gap mean and CI
-  x rejection rate x unresolved-violation rate).
-- Figure 1: `gravity_gap.png`, the headline claim. State the permutation
-  p-values from `make_plots.py`'s stdout for `full_shikimoku` vs
-  `baseline` and vs `arbitrary_control` explicitly in the caption.
-- Figure 2: `autocorrelation.png`, labeled explicitly as descriptive, not
-  the causal claim.
-- A short paragraph on the individual-rule ablations (`link_only`,
-  `shift_only`, `uchikoshi_only`, `sarikirai_only`, `rotation_only`):
-  which single rule contributes most of the effect versus which
-  combinations require the full rule set.
+- The main table from `results/ablation_table.csv`.
+- The gravity gap bar chart as your main figure, with the p-values in the
+  caption.
+- The autocorrelation chart as a secondary, clearly-labeled-as-descriptive
+  figure. It isn't a proof of anything on its own.
+- A paragraph on which individual rule (link, shift, uchikoshi, sarikirai,
+  rotation) seems to matter most on its own vs. needing all of them
+  together.
 
-**Discussion.** This is where the historical argument does its work: 700
-years of renga theory (uchikoshi as a *named fault*, not a soft
-preference; rotation as structural, not a request; the master scribe as an
-enforcement role, not a suggestion) argue that what stopped one voice from
-dominating collaborative work was never poets' good intentions. It was
-that the form made domination mechanically difficult. Frame the
-`arbitrary_control` result as the load-bearing piece of that argument. If
-`full_shikimoku` and `arbitrary_control` reduce imbalance equally, the
-result is "constraints help," which is not the claim. If `full_shikimoku`
-clearly outperforms `arbitrary_control`, the specific link-and-shift
-mechanism, not general friction, is doing the work.
+**Discussion.** This is where the historical angle actually earns its
+place: renga didn't rely on poets being polite or well-intentioned, it
+made domination structurally hard to do. The important comparison here is
+`full_shikimoku` vs. `arbitrary_control`. If both reduce the imbalance
+about the same amount, all you've shown is "constraints help," which isn't
+really the point. If `full_shikimoku` clearly beats the fake rule, that's
+evidence it's specifically link-and-shift-style governance doing the work,
+not just friction in general.
 
-**Limitations.** Simplified sarikirai taxonomy; embedding-threshold
-calibration is a hyperparameter, not ground truth (cite the calibration
-numbers); the bulk condition uses two model personas rather than real
-human turns (state the human-session case study as complementary, not
-equivalent, evidence); motif-lineage clustering can conflate
-distinct-but-lexically-similar themes (spot-check a sample of lineages by
-hand and report how many held up).
+**Limitations.** Say plainly: simplified topic categories, thresholds that
+were tuned by hand rather than from ground truth, the two-persona proxy
+standing in for a real human in most of the data, and that motif matching
+can occasionally group things together that aren't really the same idea
+(worth spot-checking a handful by hand and reporting how many held up).
 
-**Submission checklist.** 2-6 pages, poster format, non-archival: this
-means preliminary numbers are fine and expected. Do not over-claim
-statistical power that is not there (report exact n_sequences and CIs, do
-not round them away). Include 1-2 verse excerpts as figures, a `baseline`
-sequence where thematic gravity is visible by eye next to a
-`full_shikimoku` sequence where it isn't. A legible textual example next
-to the number will do more work than the bar chart alone.
+**Before submitting.** It's a short, non-archival, poster-style
+submission, so preliminary results are completely fine, just don't
+overstate how confident the numbers are (report your actual sample sizes
+and confidence intervals, don't round anything away). Also throw in one or
+two real verse excerpts as a figure, like a baseline poem where one voice
+clearly took over sitting next to a full-rules poem where it didn't. That
+kind of concrete example will land better with readers than the bar chart
+alone.

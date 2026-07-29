@@ -1,5 +1,4 @@
-"""Thin wrapper around Hugging Face Inference Providers for the two LLM-side
-jobs in this pipeline:
+"""Thin wrapper around the Claude API for the two LLM-side jobs in this pipeline:
 
 1. generate_verse  -- write the next stanza given context + active constraints
 2. extract_tags    -- pull out short motif/theme labels and sarikirai
@@ -8,22 +7,18 @@ jobs in this pipeline:
 Everything else (whether a candidate verse actually satisfies a constraint)
 is decided by rules.py using embeddings, not by asking the model to grade
 its own homework.
-
-Uses Qwen2.5-7B-Instruct (https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
-by default, called via HF's chat-completions router -- this is a hosted API
-call, not a local/self-hosted model, so no GPU is needed on your end.
 """
 from __future__ import annotations
 
 import json
 import os
 
+import anthropic
 from dotenv import load_dotenv
-from huggingface_hub import InferenceClient
 
 load_dotenv()  # reads .env in the repo root if present; real env vars still take precedence
 
-DEFAULT_MODEL = os.environ.get("RENGA_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+DEFAULT_MODEL = os.environ.get("RENGA_MODEL", "claude-sonnet-5")
 
 _client = None
 
@@ -31,20 +26,24 @@ _client = None
 def client():
     global _client
     if _client is None:
-        _client = InferenceClient(token=os.environ.get("HF_TOKEN"))  # a Read-only HF access token is sufficient
+        _client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
     return _client
 
 
-def generate_verse(system: str, user: str, model: str = DEFAULT_MODEL, max_tokens: int = 200) -> str:
-    resp = client().chat.completions.create(
+def generate_verse(system: str, user: str, model: str = DEFAULT_MODEL, max_tokens: int = 300) -> str:
+    resp = client().messages.create(
         model=model,
         max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
-        ],
+        system=system,
+        messages=[{"role": "user", "content": user}],
+        thinking={"type": "disabled"},  # this task needs neither reasoning nor its token cost
     )
-    return resp.choices[0].message.content.strip()
+    # resp.content[0] isn't guaranteed to be the text block -- some models emit a
+    # ThinkingBlock (or other block types) first, so find the actual text block.
+    for block in resp.content:
+        if block.type == "text":
+            return block.text.strip()
+    raise ValueError(f"No text block in response content: {resp.content}")
 
 
 TAG_SYSTEM = """You are a literary annotator. Given a short poem stanza, extract:
@@ -57,7 +56,7 @@ Return ONLY valid JSON: {"motifs": [...], "categories": [...]}. No commentary.""
 
 
 def extract_tags(verse_text: str, model: str = DEFAULT_MODEL) -> dict:
-    raw = generate_verse(TAG_SYSTEM, verse_text, model=model, max_tokens=150)
+    raw = generate_verse(TAG_SYSTEM, verse_text, model=model, max_tokens=200)
     raw = raw.strip()
     if raw.startswith("```"):
         raw = raw.strip("`")
