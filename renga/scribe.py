@@ -15,7 +15,8 @@ from .conditions import CONDITIONS, rule_preamble
 from .rules import check_link, check_shift, check_uchikoshi, check_sarikirai, check_rotation, check_arbitrary
 from .sequence import Verse
 
-MAX_RETRIES = 3
+MAX_RETRIES = 5  # bumped from 3 after full_shikimoku pilots showed most verses needed
+                  # several attempts to satisfy every active check at once; see CHANGELOG.md
 
 PERSONA_SYSTEM = {
     "model_A": "You are a poet in a renga (linked-verse) sequence. Write ONE short stanza (2-4 lines), "

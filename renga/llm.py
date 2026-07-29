@@ -50,7 +50,9 @@ TAG_SYSTEM = """You are a literary annotator. Given a short poem stanza, extract
 - "motifs": 2-4 short noun-phrase labels for the concrete images/themes present
   (e.g. "falling snow", "a lover's silence", "a distant bell"). Lowercase, no punctuation.
 - "categories": 0-3 labels drawn ONLY from this fixed list, whichever apply:
-  ["love", "travel", "grief", "dream", "night", "nature", "season_change", "war", "memory", "solitude"]
+  ["love", "travel", "grief", "dream", "night", "nature", "animals", "weather",
+   "season_change", "war", "memory", "solitude", "domestic", "sound", "light",
+   "food_drink", "work", "childhood"]
 
 Return ONLY valid JSON: {"motifs": [...], "categories": [...]}. No commentary."""
 

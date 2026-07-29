@@ -30,25 +30,40 @@ LINK_MIN_SIM = 0.15   # verse n must be at least this close to verse n-1
                        # calibrated from a baseline pilot: natural lag-1 similarity was
                        # mean=0.247, p25=0.149, so 0.35 was stricter than natural writing
                        # ever gets, causing near-constant link rejections
-SHIFT_MAX_SIM = 0.26  # verse n must be at most this close to verse n-2 (embedding-level departure)
-                       # calibrated from the same pilot: natural lag-2 similarity was
-                       # mean=0.209, p75=0.258
+SHIFT_MAX_SIM = 0.33  # verse n must be at most this close to verse n-2 (embedding-level departure)
+                       # the naive calibration (0.26, the natural lag-2 p75) turned out too
+                       # strict in practice: enforcing LINK pulls verse n toward n-1, which
+                       # transitively pulls it toward n-2 as well, so satisfying both link and
+                       # shift together is harder than either marginal distribution suggests.
+                       # loosened after a full_shikimoku pilot showed most SHIFT failures were
+                       # only marginally over 0.26 (0.27-0.35), not wildly off.
 
 # sarikirai table: category -> minimum number of *other* verses that must
 # intervene before the category may recur. Loosely modeled on the real
 # renga convention that heavier/rarer topics (love, grief) demand longer
 # absence than lighter recurring ones (night, nature).
 SARIKIRAI_MIN_GAP: Dict[str, int] = {
-    "love": 5,
-    "grief": 4,
-    "travel": 4,
-    "war": 4,
-    "dream": 3,
-    "memory": 3,
-    "solitude": 3,
-    "night": 2,
-    "season_change": 2,
+    # loosened by one step across the board after a full_shikimoku pilot showed
+    # night/solitude/memory (common, ordinary categories for short verse) were
+    # triggering repeated rejections just from running out of room to avoid them.
+    "love": 4,
+    "grief": 3,
+    "travel": 3,
+    "war": 3,
+    "dream": 2,
+    "memory": 2,
+    "solitude": 2,
+    "night": 1,
+    "season_change": 1,
     "nature": 1,
+    "animals": 1,
+    "weather": 1,
+    "domestic": 1,
+    "sound": 1,
+    "light": 1,
+    "food_drink": 1,
+    "work": 1,
+    "childhood": 2,
 }
 
 ARBITRARY_COLORS = ["crimson", "silver", "amber", "violet", "ash", "gold", "jade"]
