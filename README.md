@@ -74,12 +74,21 @@ material, not your headline statistic).
 
 ```bash
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=...      # https://console.anthropic.com
+export HF_TOKEN=...      # a Read (Read-only) access token from https://huggingface.co/settings/tokens is enough --
+                          # this project only calls Inference Providers, it never pushes to the Hub
 ```
 
-The first run downloads `all-MiniLM-L6-v2` (sentence-transformers) locally;
-after that, embedding is offline and free, so it's safe to call inside the
-scribe's retry loop.
+Generation and motif/category tagging both call
+[Qwen2.5-7B-Instruct](https://huggingface.co/Qwen/Qwen2.5-7B-Instruct) via
+HF's hosted Inference Providers by default (`renga/llm.py`) -- no GPU
+needed on your end, it's a remote API call billed per request/token same as
+any other hosted model. Override with `RENGA_MODEL=<hf-repo-id>` if you
+want to try a different hosted model (e.g. to test whether the effect
+holds across model pairings).
+
+The first run downloads `all-MiniLM-L6-v2` (sentence-transformers) locally
+for constraint-checking embeddings; after that, embedding is offline and
+free, so it's safe to call inside the scribe's retry loop.
 
 ## Running it
 

@@ -1,4 +1,5 @@
-"""Thin wrapper around the Claude API for the two LLM-side jobs in this pipeline:
+"""Thin wrapper around Hugging Face Inference Providers for the two LLM-side
+jobs in this pipeline:
 
 1. generate_verse  -- write the next stanza given context + active constraints
 2. extract_tags    -- pull out short motif/theme labels and sarikirai
@@ -7,15 +8,22 @@
 Everything else (whether a candidate verse actually satisfies a constraint)
 is decided by rules.py using embeddings, not by asking the model to grade
 its own homework.
+
+Uses Qwen2.5-7B-Instruct (https://huggingface.co/Qwen/Qwen2.5-7B-Instruct)
+by default, called via HF's chat-completions router -- this is a hosted API
+call, not a local/self-hosted model, so no GPU is needed on your end.
 """
 from __future__ import annotations
 
 import json
 import os
 
-import anthropic
+from dotenv import load_dotenv
+from huggingface_hub import InferenceClient
 
-DEFAULT_MODEL = os.environ.get("RENGA_MODEL", "claude-sonnet-5")
+load_dotenv()  # reads .env in the repo root if present; real env vars still take precedence
+
+DEFAULT_MODEL = os.environ.get("RENGA_MODEL", "Qwen/Qwen2.5-7B-Instruct")
 
 _client = None
 
@@ -23,18 +31,20 @@ _client = None
 def client():
     global _client
     if _client is None:
-        _client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from env
+        _client = InferenceClient(token=os.environ.get("HF_TOKEN"))  # a Read-only HF access token is sufficient
     return _client
 
 
 def generate_verse(system: str, user: str, model: str = DEFAULT_MODEL, max_tokens: int = 200) -> str:
-    resp = client().messages.create(
+    resp = client().chat.completions.create(
         model=model,
         max_tokens=max_tokens,
-        system=system,
-        messages=[{"role": "user", "content": user}],
+        messages=[
+            {"role": "system", "content": system},
+            {"role": "user", "content": user},
+        ],
     )
-    return resp.content[0].text.strip()
+    return resp.choices[0].message.content.strip()
 
 
 TAG_SYSTEM = """You are a literary annotator. Given a short poem stanza, extract:

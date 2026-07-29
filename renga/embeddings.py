@@ -1,12 +1,13 @@
 """Local sentence embeddings used for constraint-checking and provenance tracking.
 
-Kept separate from the Claude calls in llm.py on purpose: rule *enforcement*
-(link/shift/uchikoshi thresholds) needs to run many times per verse during the
-scribe's retry loop, and doing that with cheap local embeddings keeps the
-API cost and latency in generation only. Motif *labels* still come from
-Claude (see llm.extract_motifs) because free-text theme extraction is not
-something a small embedding model can do; but once we have the labels we
-embed them locally for lineage clustering (see provenance.py).
+Kept separate from the HF Inference API calls in llm.py on purpose: rule
+*enforcement* (link/shift/uchikoshi thresholds) needs to run many times per
+verse during the scribe's retry loop, and doing that with cheap local
+embeddings keeps the API cost and latency in generation only. Motif
+*labels* still come from the hosted model (see llm.extract_tags) because
+free-text theme extraction is not something a small embedding model can
+do; but once we have the labels we embed them locally for lineage
+clustering (see provenance.py).
 """
 from __future__ import annotations
 
