@@ -67,7 +67,17 @@ def extract_tags(verse_text: str, model: str = DEFAULT_MODEL) -> dict:
         data = json.loads(raw)
     except json.JSONDecodeError:
         start, end = raw.find("{"), raw.rfind("}")
-        data = json.loads(raw[start : end + 1]) if start != -1 and end != -1 else {"motifs": [], "categories": []}
+        try:
+            data = json.loads(raw[start : end + 1]) if start != -1 and end != -1 else {}
+        except json.JSONDecodeError:
+            # the model occasionally emits slightly malformed JSON (a missing comma,
+            # a stray line). Not worth crashing an entire multi-hour run over one bad
+            # tag-extraction call -- fall back to empty tags for this verse. This does
+            # mean that verse won't be checked for uchikoshi/sarikirai violations or
+            # counted in provenance lineages, which is a small, rare source of noise
+            # worth disclosing rather than silently absorbing.
+            print(f"[llm.extract_tags] WARNING: unparseable tag response, falling back to empty tags. Raw: {raw!r}")
+            data = {}
     data.setdefault("motifs", [])
     data.setdefault("categories", [])
     return data

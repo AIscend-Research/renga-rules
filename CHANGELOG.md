@@ -171,6 +171,25 @@ category match rather than any overlap) rather than expanding the
 taxonomy further, since taxonomy size has diminishing returns and
 `uchikoshi` may just be a stricter rule than `sarikirai` by construction.
 
+## 11. Fixed a crash: malformed JSON from the tagging call had no real fallback
+
+Re-running the step-10 pilot crashed the whole run on a `JSONDecodeError`
+in `extract_tags`. The model occasionally emits slightly malformed JSON (a
+missing comma in this case), and the existing fallback path (re-extracting
+the substring between the first `{` and last `}`) still ran `json.loads`
+on that same malformed text and raised the identical error unhandled, it
+wasn't actually a fallback, just a second attempt that failed the same
+way.
+
+Fixed `extract_tags` in `renga/llm.py` to catch the second failure too and
+fall back to empty `{"motifs": [], "categories": []}` for that one verse,
+with a printed warning so the failure is visible during a run rather than
+silently swallowed. This means an occasional verse won't be checked for
+uchikoshi/sarikirai violations or counted in a provenance lineage. Worth
+tracking how often this fires across the real experiment (grep the run
+output for `[llm.extract_tags] WARNING`) and reporting the rate in the
+paper rather than assuming it never happens.
+
 ## Why this belongs in the paper
 
 All of section 8-9 is exactly the kind of calibration transparency a
