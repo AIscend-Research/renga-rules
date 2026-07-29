@@ -26,8 +26,13 @@ from typing import Dict, List, Tuple
 
 from .embeddings import cosine_sim
 
-LINK_MIN_SIM = 0.35   # verse n must be at least this close to verse n-1
-SHIFT_MAX_SIM = 0.55  # verse n must be at most this close to verse n-2 (embedding-level departure)
+LINK_MIN_SIM = 0.15   # verse n must be at least this close to verse n-1
+                       # calibrated from a baseline pilot: natural lag-1 similarity was
+                       # mean=0.247, p25=0.149, so 0.35 was stricter than natural writing
+                       # ever gets, causing near-constant link rejections
+SHIFT_MAX_SIM = 0.26  # verse n must be at most this close to verse n-2 (embedding-level departure)
+                       # calibrated from the same pilot: natural lag-2 similarity was
+                       # mean=0.209, p75=0.258
 
 # sarikirai table: category -> minimum number of *other* verses that must
 # intervene before the category may recur. Loosely modeled on the real
