@@ -21,6 +21,7 @@ import matplotlib.pyplot as plt
 from renga.conditions import CONDITIONS
 from renga.experiment import load_condition
 from renga.metrics import summarize_condition, permutation_test_diff
+from renga.plotstyle import styled_bar_chart
 
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results")
 
@@ -55,15 +56,14 @@ def main():
     err_low = [m - l for m, l in zip(means, los)]
     err_high = [h - m for h, m in zip(his, means)]
 
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.bar(conds, means, yerr=[err_low, err_high], capsize=4)
-    ax.axhline(0, color="black", linewidth=0.8)
-    ax.set_ylabel("Thematic gravity imbalance\n(|mean survival(persona A) − mean survival(persona B)|, in verses)")
-    ax.set_title("Thematic gravity imbalance by governance condition")
-    plt.xticks(rotation=30, ha="right")
-    plt.tight_layout()
-    fig.savefig(os.path.join(RESULTS_DIR, "gravity_gap.png"), dpi=150)
-    print(f"Wrote {os.path.join(RESULTS_DIR, 'gravity_gap.png')}")
+    gravity_gap_path = os.path.join(RESULTS_DIR, "gravity_gap.png")
+    styled_bar_chart(
+        conds, means, err_low, err_high,
+        ylabel="Thematic gravity imbalance (|survival(persona A) − survival(persona B)|, verses)",
+        title="Thematic gravity imbalance by governance condition",
+        out_path=gravity_gap_path,
+    )
+    print(f"Wrote {gravity_gap_path}")
 
     # --- autocorrelation curves (descriptive) ---
     fig2, ax2 = plt.subplots(figsize=(7, 5))

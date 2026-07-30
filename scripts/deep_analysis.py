@@ -42,6 +42,7 @@ from renga.conditions import CONDITIONS
 from renga.experiment import load_condition
 from renga.provenance import build_lineages, gravity_gap
 from renga.metrics import bootstrap_ci, permutation_test_diff, paired_permutation_test, category_entropy
+from renga.plotstyle import styled_bar_chart
 
 RESULTS_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "results")
 OUT_DIR = os.path.join(RESULTS_DIR, "deep_analysis")
@@ -198,14 +199,14 @@ def main():
         his = [entropy_summary[c]["hi"] for c in conds]
         err_low = [m - l for m, l in zip(means, los)]
         err_high = [h - m for h, m in zip(his, means)]
-        fig, ax = plt.subplots(figsize=(9, 5))
-        ax.bar(conds, means, yerr=[err_low, err_high], capsize=4)
-        ax.set_ylabel("Category-usage entropy (bits)")
-        ax.set_title("Topic diversity by governance condition")
-        plt.xticks(rotation=30, ha="right")
-        plt.tight_layout()
-        fig.savefig(os.path.join(OUT_DIR, "entropy_by_condition.png"), dpi=150)
-        print(f"wrote {os.path.join(OUT_DIR, 'entropy_by_condition.png')}")
+        entropy_path = os.path.join(OUT_DIR, "entropy_by_condition.png")
+        styled_bar_chart(
+            conds, means, err_low, err_high,
+            ylabel="Category-usage entropy (bits)",
+            title="Topic diversity by governance condition",
+            out_path=entropy_path,
+        )
+        print(f"wrote {entropy_path}")
 
     table_path = os.path.join(OUT_DIR, "corrected_ablation_table.csv")
     with open(table_path, "w", newline="") as f:
