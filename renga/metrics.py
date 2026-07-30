@@ -9,6 +9,9 @@ what make that gap a claim rather than an anecdote.
 """
 from __future__ import annotations
 
+import math
+from collections import Counter
+
 import numpy as np
 
 from .embeddings import cosine_sim
@@ -47,6 +50,42 @@ def permutation_test_diff(a, b, n_perm: int = 5000, rng=None) -> float:
         if abs(diff) >= abs(observed):
             count += 1
     return count / n_perm
+
+
+def paired_permutation_test(paired_diffs, n_perm: int = 10000, rng=None) -> float:
+    """Sign-flip permutation test on paired differences (e.g. same seed poem,
+    condition A vs condition B). Blocking on a shared seed controls for
+    seed-level variance (some seeds behave very differently than others) that
+    an unpaired test throws away. Returns a two-sided p-value for whether the
+    mean paired difference is different from zero."""
+    diffs = np.asarray(paired_diffs, dtype=float)
+    if len(diffs) == 0:
+        return None
+    rng = rng or np.random.default_rng(0)
+    observed = diffs.mean()
+    n = len(diffs)
+    count = 0
+    for _ in range(n_perm):
+        signs = rng.choice([-1.0, 1.0], size=n)
+        stat = (diffs * signs).mean()
+        if abs(stat) >= abs(observed):
+            count += 1
+    return count / n_perm
+
+
+def category_entropy(sequence):
+    """Shannon entropy (bits) of category usage across a whole sequence: how
+    evenly spread the poem's topics are, versus concentrated on a few repeated
+    categories. Higher = more diverse topic coverage. This is a more direct
+    read on what uchikoshi/sarikirai are explicitly trying to enforce than the
+    provenance-based gravity gap is, and a useful second outcome measure.
+    Returns None if the sequence has no tagged categories at all."""
+    all_cats = [c for v in sequence.verses for c in v.categories]
+    if not all_cats:
+        return None
+    counts = Counter(all_cats)
+    total = sum(counts.values())
+    return -sum((n / total) * math.log2(n / total) for n in counts.values())
 
 
 def summarize_condition(sequences, group_a=("model_A",), group_b=("model_B", "human"), signed=False):
