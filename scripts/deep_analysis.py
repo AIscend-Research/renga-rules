@@ -94,36 +94,43 @@ def per_seed_means(rows):
 
 def main():
     os.makedirs(OUT_DIR, exist_ok=True)
+
+    report_lines = []
+
+    def log(msg=""):
+        print(msg)
+        report_lines.append(msg)
+
     data = load_all()
     if "baseline" not in data or "full_shikimoku" not in data:
-        print("Need at least baseline and full_shikimoku data. Run the full experiment first.")
+        log("Need at least baseline and full_shikimoku data. Run the full experiment first.")
         return
 
-    print("=" * 72)
-    print("1. CORRECTED GRAVITY GAP (seed-authorship confound removed)")
-    print("=" * 72)
+    log("=" * 72)
+    log("1. CORRECTED GRAVITY GAP (seed-authorship confound removed)")
+    log("=" * 72)
     corrected = {}
     for cond, seqs in data.items():
         rows = per_sequence_stats(seqs)
         gaps = [r["gap"] for r in rows if r["gap"] is not None]
         if not gaps:
-            print(f"{cond:20s} no valid gaps, skipping")
+            log(f"{cond:20s} no valid gaps, skipping")
             continue
         mean, lo, hi = bootstrap_ci(gaps)
         corrected[cond] = {"rows": rows, "gaps": gaps, "mean": mean, "lo": lo, "hi": hi}
-        print(f"{cond:20s} n={len(gaps):2d}  corrected_gap={mean:.3f} (CI {lo:.3f}-{hi:.3f})")
+        log(f"{cond:20s} n={len(gaps):2d}  corrected_gap={mean:.3f} (CI {lo:.3f}-{hi:.3f})")
 
     if "full_shikimoku" in corrected and "baseline" in corrected:
         p = permutation_test_diff(corrected["full_shikimoku"]["gaps"], corrected["baseline"]["gaps"])
-        print(f"\npermutation test (corrected) full_shikimoku vs baseline: p = {p:.4f}")
+        log(f"\npermutation test (corrected) full_shikimoku vs baseline: p = {p:.4f}")
     if "full_shikimoku" in corrected and "arbitrary_control" in corrected:
         p = permutation_test_diff(corrected["full_shikimoku"]["gaps"], corrected["arbitrary_control"]["gaps"])
-        print(f"permutation test (corrected) full_shikimoku vs arbitrary_control: p = {p:.4f}")
+        log(f"permutation test (corrected) full_shikimoku vs arbitrary_control: p = {p:.4f}")
 
-    print()
-    print("=" * 72)
-    print("2. SYNERGY: is full_shikimoku's effect bigger than the sum of its parts?")
-    print("=" * 72)
+    log()
+    log("=" * 72)
+    log("2. SYNERGY: is full_shikimoku's effect bigger than the sum of its parts?")
+    log("=" * 72)
     if "baseline" in corrected:
         baseline_mean = corrected["baseline"]["mean"]
         individual_effects = {}
@@ -131,21 +138,21 @@ def main():
             if cond in corrected:
                 effect = baseline_mean - corrected[cond]["mean"]
                 individual_effects[cond] = effect
-                print(f"  {cond:20s} marginal effect (baseline - condition) = {effect:+.3f}")
+                log(f"  {cond:20s} marginal effect (baseline - condition) = {effect:+.3f}")
         if individual_effects and "full_shikimoku" in corrected:
             sum_of_parts = sum(individual_effects.values())
             actual_full_effect = baseline_mean - corrected["full_shikimoku"]["mean"]
-            print(f"\n  sum of individual marginal effects   = {sum_of_parts:+.3f}")
-            print(f"  actual full_shikimoku effect         = {actual_full_effect:+.3f}")
+            log(f"\n  sum of individual marginal effects   = {sum_of_parts:+.3f}")
+            log(f"  actual full_shikimoku effect         = {actual_full_effect:+.3f}")
             if actual_full_effect > sum_of_parts:
-                print("  -> SYNERGY: combined rules outperform the sum of their individual effects")
+                log("  -> SYNERGY: combined rules outperform the sum of their individual effects")
             else:
-                print("  -> NO SYNERGY: combined effect is <= the sum of individual effects")
+                log("  -> NO SYNERGY: combined effect is <= the sum of individual effects")
 
-    print()
-    print("=" * 72)
-    print("3. DOSE-RESPONSE within full_shikimoku: rejections vs corrected gap")
-    print("=" * 72)
+    log()
+    log("=" * 72)
+    log("3. DOSE-RESPONSE within full_shikimoku: rejections vs corrected gap")
+    log("=" * 72)
     if "full_shikimoku" in corrected:
         rows = [r for r in corrected["full_shikimoku"]["rows"] if r["gap"] is not None]
         rejections = np.array([r["rejections"] for r in rows], dtype=float)
@@ -155,8 +162,8 @@ def main():
             rank_rej = np.argsort(np.argsort(rejections))
             rank_gap = np.argsort(np.argsort(gaps))
             spearman_r = float(np.corrcoef(rank_rej, rank_gap)[0, 1])
-            print(f"  Pearson r  = {pearson_r:.3f}  (n={len(rejections)})")
-            print(f"  Spearman rho = {spearman_r:.3f}")
+            log(f"  Pearson r  = {pearson_r:.3f}  (n={len(rejections)})")
+            log(f"  Spearman rho = {spearman_r:.3f}")
 
             fig, ax = plt.subplots(figsize=(6, 5))
             ax.scatter(rejections, gaps, alpha=0.7)
@@ -168,14 +175,14 @@ def main():
             ax.set_title(f"full_shikimoku: friction vs balance (Pearson r={pearson_r:.2f})")
             plt.tight_layout()
             fig.savefig(os.path.join(OUT_DIR, "dose_response.png"), dpi=150)
-            print(f"  wrote {os.path.join(OUT_DIR, 'dose_response.png')}")
+            log(f"  wrote {os.path.join(OUT_DIR, 'dose_response.png')}")
         else:
-            print("  not enough sequences with valid gaps to correlate")
+            log("  not enough sequences with valid gaps to correlate")
 
-    print()
-    print("=" * 72)
-    print("4. CATEGORY-DIVERSITY (Shannon entropy) as a second outcome measure")
-    print("=" * 72)
+    log()
+    log("=" * 72)
+    log("4. CATEGORY-DIVERSITY (Shannon entropy) as a second outcome measure")
+    log("=" * 72)
     entropy_summary = {}
     for cond, info in corrected.items():
         ents = [r["entropy"] for r in info["rows"] if r["entropy"] is not None]
@@ -183,14 +190,14 @@ def main():
             continue
         mean, lo, hi = bootstrap_ci(ents)
         entropy_summary[cond] = {"ents": ents, "mean": mean, "lo": lo, "hi": hi}
-        print(f"{cond:20s} n={len(ents):2d}  entropy={mean:.3f} bits (CI {lo:.3f}-{hi:.3f})")
+        log(f"{cond:20s} n={len(ents):2d}  entropy={mean:.3f} bits (CI {lo:.3f}-{hi:.3f})")
 
     if "full_shikimoku" in entropy_summary and "baseline" in entropy_summary:
         p = permutation_test_diff(entropy_summary["full_shikimoku"]["ents"], entropy_summary["baseline"]["ents"])
-        print(f"\npermutation test (entropy) full_shikimoku vs baseline: p = {p:.4f}")
+        log(f"\npermutation test (entropy) full_shikimoku vs baseline: p = {p:.4f}")
     if "full_shikimoku" in entropy_summary and "arbitrary_control" in entropy_summary:
         p = permutation_test_diff(entropy_summary["full_shikimoku"]["ents"], entropy_summary["arbitrary_control"]["ents"])
-        print(f"permutation test (entropy) full_shikimoku vs arbitrary_control: p = {p:.4f}")
+        log(f"permutation test (entropy) full_shikimoku vs arbitrary_control: p = {p:.4f}")
 
     if entropy_summary:
         conds = list(entropy_summary.keys())
@@ -206,7 +213,7 @@ def main():
             title="Topic diversity by governance condition",
             out_path=entropy_path,
         )
-        print(f"wrote {entropy_path}")
+        log(f"wrote {entropy_path}")
 
     table_path = os.path.join(OUT_DIR, "corrected_ablation_table.csv")
     with open(table_path, "w", newline="") as f:
@@ -217,19 +224,19 @@ def main():
             g = corrected[cond]
             e = entropy_summary.get(cond, {"mean": None, "lo": None, "hi": None})
             writer.writerow([cond, len(g["gaps"]), g["mean"], g["lo"], g["hi"], e["mean"], e["lo"], e["hi"]])
-    print(f"wrote {table_path}")
+    log(f"wrote {table_path}")
 
-    print()
-    print("=" * 72)
-    print("5. PAIRED-BY-SEED tests (blocking on the 8 recurring seed poems)")
-    print("=" * 72)
+    log()
+    log("=" * 72)
+    log("5. PAIRED-BY-SEED tests (blocking on the 8 recurring seed poems)")
+    log("=" * 72)
     if "full_shikimoku" in corrected and "baseline" in corrected:
         a = per_seed_means(corrected["full_shikimoku"]["rows"])
         b = per_seed_means(corrected["baseline"]["rows"])
         shared = sorted(set(a) & set(b))
         diffs = [a[s] - b[s] for s in shared]
         p = paired_permutation_test(diffs)
-        print(f"  full_shikimoku vs baseline: n_seeds={len(diffs)}  mean_diff={np.mean(diffs):+.3f}  p={p:.4f}")
+        log(f"  full_shikimoku vs baseline: n_seeds={len(diffs)}  mean_diff={np.mean(diffs):+.3f}  p={p:.4f}")
 
     if "full_shikimoku" in corrected and "arbitrary_control" in corrected:
         a = per_seed_means(corrected["full_shikimoku"]["rows"])
@@ -237,12 +244,12 @@ def main():
         shared = sorted(set(a) & set(b))
         diffs = [a[s] - b[s] for s in shared]
         p = paired_permutation_test(diffs)
-        print(f"  full_shikimoku vs arbitrary_control: n_seeds={len(diffs)}  mean_diff={np.mean(diffs):+.3f}  p={p:.4f}")
+        log(f"  full_shikimoku vs arbitrary_control: n_seeds={len(diffs)}  mean_diff={np.mean(diffs):+.3f}  p={p:.4f}")
 
-    print()
-    print("=" * 72)
-    print("6. EXCERPT SELECTION: most-imbalanced baseline vs most-balanced full_shikimoku")
-    print("=" * 72)
+    log()
+    log("=" * 72)
+    log("6. EXCERPT SELECTION: most-imbalanced baseline vs most-balanced full_shikimoku")
+    log("=" * 72)
     excerpt_lines = []
     if "baseline" in corrected:
         rows = corrected["baseline"]["rows"]
@@ -269,8 +276,13 @@ def main():
     excerpt_path = os.path.join(OUT_DIR, "excerpts.txt")
     with open(excerpt_path, "w") as f:
         f.write("\n".join(excerpt_lines))
-    print(f"wrote {excerpt_path}\n")
-    print("\n".join(excerpt_lines))
+    log(f"wrote {excerpt_path}\n")
+    log("\n".join(excerpt_lines))
+
+    report_path = os.path.join(OUT_DIR, "report.txt")
+    with open(report_path, "w") as f:
+        f.write("\n".join(report_lines))
+    print(f"\nwrote {report_path}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,38 @@
+Human-LLM session analysis
+======================================================================
+
+n=1 per condition -- case-study evidence, not a statistical sample.
+No significance test applies here; report these numbers as concrete
+qualitative illustrations alongside the bulk (n=20) ablation results.
+
+--- session_000.json (condition: baseline) ---
+  signed gravity gap (model - human): +0.395
+    positive = model's motifs outlived the human's; negative = the reverse
+  model-originated motifs that recurred:
+    - ['a waiting cup', 'a cup of waiting tea'] (survived 7 verses)
+  human-originated motifs that recurred:
+    - ['a circling spoon', 'a last spoonful'] (survived 1 verses)
+  category-usage entropy: 2.626 bits
+  rejections: 0 total, 0.00 per model-written verse
+  unresolved violations: 0 (0% of model verses)
+
+--- session_001.json (condition: full_shikimoku) ---
+  signed gravity gap (model - human): -0.583
+    positive = model's motifs outlived the human's; negative = the reverse
+  human-originated motifs that recurred:
+    - ['first autumn breeze', 'autumn leaves'] (survived 6 verses)
+    - ['a shared last cup', 'gathering cups'] (survived 1 verses)
+  category-usage entropy: 3.153 bits
+  rejections: 41 total, 6.83 per model-written verse
+  unresolved violations: 4 (67% of model verses)
+
+--- baseline vs full_shikimoku, same human, same opening hokku ---
+  gravity gap: +0.395 (baseline) -> -0.583 (full_shikimoku)
+  -> SIGN FLIP: whichever side dominated under baseline reversed under full governance
+  entropy: 2.626 -> 3.153 bits
+  rejections/verse: 0.00 -> 6.83
+
+  Caveat: same human author wrote both sessions, with the baseline session
+  written first. The human's choices in the second session may have been
+  subtly informed by having just written the first -- a limitation of n=1
+  qualitative comparison, worth disclosing rather than ignoring.

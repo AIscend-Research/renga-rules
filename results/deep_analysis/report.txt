@@ -1,0 +1,157 @@
+========================================================================
+1. CORRECTED GRAVITY GAP (seed-authorship confound removed)
+========================================================================
+baseline             n=20  corrected_gap=0.473 (CI 0.316-0.652)
+rotation_only        n=20  corrected_gap=0.495 (CI 0.357-0.625)
+link_only            n=20  corrected_gap=0.505 (CI 0.362-0.677)
+shift_only           n=20  corrected_gap=0.604 (CI 0.432-0.805)
+uchikoshi_only       n=20  corrected_gap=0.496 (CI 0.287-0.754)
+sarikirai_only       n=20  corrected_gap=0.461 (CI 0.333-0.590)
+full_shikimoku       n=20  corrected_gap=0.377 (CI 0.256-0.508)
+arbitrary_control    n=20  corrected_gap=0.554 (CI 0.412-0.708)
+
+permutation test (corrected) full_shikimoku vs baseline: p = 0.3994
+permutation test (corrected) full_shikimoku vs arbitrary_control: p = 0.0856
+
+========================================================================
+2. SYNERGY: is full_shikimoku's effect bigger than the sum of its parts?
+========================================================================
+  link_only            marginal effect (baseline - condition) = -0.032
+  shift_only           marginal effect (baseline - condition) = -0.131
+  uchikoshi_only       marginal effect (baseline - condition) = -0.023
+  sarikirai_only       marginal effect (baseline - condition) = +0.012
+  rotation_only        marginal effect (baseline - condition) = -0.022
+
+  sum of individual marginal effects   = -0.196
+  actual full_shikimoku effect         = +0.096
+  -> SYNERGY: combined rules outperform the sum of their individual effects
+
+========================================================================
+3. DOSE-RESPONSE within full_shikimoku: rejections vs corrected gap
+========================================================================
+  Pearson r  = 0.132  (n=20)
+  Spearman rho = 0.134
+  wrote /Users/welu28/Documents/GitHub/renga-rules/results/deep_analysis/dose_response.png
+
+========================================================================
+4. CATEGORY-DIVERSITY (Shannon entropy) as a second outcome measure
+========================================================================
+baseline             n=20  entropy=2.983 bits (CI 2.883-3.076)
+rotation_only        n=20  entropy=2.974 bits (CI 2.836-3.102)
+link_only            n=20  entropy=2.786 bits (CI 2.599-2.949)
+shift_only           n=20  entropy=3.117 bits (CI 3.043-3.191)
+uchikoshi_only       n=20  entropy=3.344 bits (CI 3.279-3.414)
+sarikirai_only       n=20  entropy=3.196 bits (CI 3.097-3.291)
+full_shikimoku       n=20  entropy=3.290 bits (CI 3.222-3.360)
+arbitrary_control    n=20  entropy=3.144 bits (CI 3.039-3.237)
+
+permutation test (entropy) full_shikimoku vs baseline: p = 0.0000
+permutation test (entropy) full_shikimoku vs arbitrary_control: p = 0.0296
+wrote /Users/welu28/Documents/GitHub/renga-rules/results/deep_analysis/entropy_by_condition.png
+wrote /Users/welu28/Documents/GitHub/renga-rules/results/deep_analysis/corrected_ablation_table.csv
+
+========================================================================
+5. PAIRED-BY-SEED tests (blocking on the 8 recurring seed poems)
+========================================================================
+  full_shikimoku vs baseline: n_seeds=8  mean_diff=-0.090  p=0.3773
+  full_shikimoku vs arbitrary_control: n_seeds=8  mean_diff=-0.171  p=0.2191
+
+========================================================================
+6. EXCERPT SELECTION: most-imbalanced baseline vs most-balanced full_shikimoku
+========================================================================
+wrote /Users/welu28/Documents/GitHub/renga-rules/results/deep_analysis/excerpts.txt
+
+MOST IMBALANCED baseline sequence (seed=snow, corrected_gap=1.389):
+
+[0] (model_A): The last snow melts from the roof tiles one drop at a time.
+[1] (model_B): somewhere a gutter
+learns the whole song by heart —
+one note, over and over
+[2] (model_A): a crow interrupts,
+tilts its head at the rhythm,
+adds nothing, stays anyway
+[3] (model_B): I sweep the porch clean
+though rain's still falling somewhere —
+this too keeps its own time
+[4] (model_A): the kettle starts humming
+before I've struck the match —
+some things arrive early
+[5] (model_B): my shadow leaves first
+long before I stand up —
+already halfway to the door
+[6] (model_A): the porch light flickers on
+mistaking dusk for someone home —
+I let it think so
+[7] (model_B): I count the mail twice
+before admitting none of it
+was ever going to be for me
+[8] (model_A): the phone stays quiet
+so I practice how I'd sound
+saying nothing back
+[9] (model_B): the kettle finishes
+before I remember what
+I was going to pour it for
+[10] (model_A): still, I pour it—
+into the one cup
+that never asks who for
+[11] (model_B): steam finds the window
+and writes an answer there
+before it fades
+[12] (model_A): I trace the letters
+with a fingertip, learning
+a language I'll forget
+[13] (model_B): outside, the frost
+keeps its own version—
+neither of us checking who's right
+[14] (model_A): the kettle cools
+into a small silence
+we both agree to keep
+[15] (model_B): morning takes the cup
+still warm from someone's hands
+before the day asks whose
+
+MOST BALANCED full_shikimoku sequence (seed=harbor, corrected_gap=0.004):
+
+[0] (model_A): A boat leaves the harbor before anyone is awake to see it go.
+[1] (model_B): Someone finds a single glove on the dock and doesn't know whose name to call
+[2] (model_A): she turns the glove over, checking the stitched size,
+then sets it on the post where the sun will find it first
+[3] (model_B): light climbs the post slow,
+warming the empty fingers—
+a gull lands, then thinks better of it
+[4] (model_A): the wind shifts once,
+carrying salt and diesel—
+someone folds a map they'll never use
+[5] (model_B): creases hold their shape
+long after the paper's flattened—
+a coin drops through the dock's wet slats
+[6] (model_A): no ripple marks its fall—
+below, a crab lifts one claw,
+testing the new shade
+[7] (model_B): the shade slides on without it—
+somewhere a shutter bangs twice
+then settles against the frame
+[8] (model_A): dust settles on the sill—
+someone's thumbprint still visible
+where the glass was wiped this morning
+[9] (model_B): the kettle clicks off by itself—
+steam finds the crack in the window
+and disappears outside
+[10] (model_A): cold air pools along the floorboards—
+somewhere a moth taps the bulb
+counting its own shadow
+[11] (model_B): the bulb hums a little longer—
+somewhere outside a dog answers
+something no one else heard
+[12] (model_A): porch light left burning—
+a moth-shaped smudge on the screen door
+where morning will find it
+[13] (model_B): someone wipes the screen door clean—
+the smudge comes off on their sleeve
+faint as a fingerprint
+[14] (model_A): they fold the sleeve into a drawer—
+somewhere a train pulls out of the station
+carrying no one they know
+[15] (model_B): the schedule board flickers and resets—
+someone checks their pocket for a ticket
+already punched twice

@@ -21,6 +21,28 @@ from renga.embeddings import embed
 from renga.llm import extract_tags
 
 
+def read_multiline_verse(prompt):
+    """Reads one verse that may span multiple lines (e.g. a pasted 3-line haiku).
+    A single input() call only reads up to the first newline -- if the user pastes
+    several lines at once, the rest would sit in the terminal's input buffer and
+    get silently consumed by later prompts instead of waiting for real input. This
+    reads lines until a blank line (or EOF), so a pasted multi-line verse is
+    captured whole instead of bleeding into the next turn."""
+    print(prompt)
+    lines = []
+    while True:
+        try:
+            line = input()
+        except EOFError:
+            break
+        if line.strip() == "":
+            if lines:
+                break
+            continue  # ignore leading blank lines before any real text
+        lines.append(line)
+    return "\n".join(lines).strip()
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--condition", required=True, choices=list(CONDITIONS.keys()))
@@ -30,7 +52,9 @@ def main():
     args = p.parse_args()
 
     print(f"Human-LLM renga session. Condition: {args.condition}")
-    seed_text = input("Write the opening verse (hokku): ").strip()
+    seed_text = read_multiline_verse(
+        "Write the opening verse (hokku) -- paste or type it, then press enter on a blank line to finish:"
+    )
     tags = extract_tags(seed_text, **({"model": args.model} if args.model else {}))
     verses = [Verse(index=0, author="human", text=seed_text, motifs=tags["motifs"], categories=tags["categories"], embedding=embed(seed_text).tolist())]
 
@@ -43,7 +67,7 @@ def main():
             if verse.unresolved_violation:
                 print("  (WARNING: accepted with an unresolved rule violation after max retries)")
         else:
-            text = input("\nYour verse: ").strip()
+            text = read_multiline_verse("\nYour verse -- paste or type it, then press enter on a blank line to finish:")
             tags = extract_tags(text, **({"model": args.model} if args.model else {}))
             verse = Verse(index=i, author="human", text=text, motifs=tags["motifs"], categories=tags["categories"], embedding=embed(text).tolist())
         verses.append(verse)
