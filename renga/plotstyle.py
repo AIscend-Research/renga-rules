@@ -29,6 +29,21 @@ COLOR_HERO = "#2a78d6"      # blue -- the condition the finding is about
 COLOR_FOIL = "#e34948"      # red -- the adversarial/equal-complexity control
 COLOR_CONTEXT = "#c3c2b7"   # muted gray -- supporting ablation detail, not the headline
 
+# Author-identity colors for per-sequence figures (thread timeline, etc.) --
+# distinct role from the condition-level hero/foil/context above. Validated
+# adjacent pair (worst-case normal-vision dE 33.6, CVD dE 24.7).
+COLOR_MODEL_A = "#2a78d6"   # blue
+COLOR_MODEL_B = "#eb6834"   # orange
+COLOR_HUMAN = "#1baf7a"     # aqua -- for human_session.py transcripts (three authors: model_A/model_B/human never co-occur, but human sessions only ever have model_A + human)
+
+# Sequential single-hue ramp (blue, light -> dark) for similarity heatmaps /
+# other continuous-magnitude encodings. From the dataviz skill's validated
+# palette.md sequential row.
+SEQUENTIAL_BLUE = [
+    "#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7",
+    "#3987e5", "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b",
+]
+
 DEFAULT_ROLES = {
     "baseline": "context",
     "rotation_only": "context",
